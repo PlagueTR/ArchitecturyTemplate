@@ -1,3 +1,3 @@
 # Architectury Template
 
-Simply a template for developing mods using architectury plugin & loom
+A template to develop Minecraft mods using Architectury
