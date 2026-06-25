@@ -12,7 +12,7 @@ import com.example.example_mod.Main;
 @Mixin(TitleScreen.class)
 public class MixinTitleScreen {
 
-    private boolean said_hello = false;
+    private static boolean said_hello = false;
 
     @Inject(method = "init()V", at = @At("TAIL"))
     protected void init(CallbackInfo ci) {

@@ -71,6 +71,13 @@ subprojects {
 
 	tasks.withType(JavaCompile).configureEach {
 		it.options.release = rootProject.minecraft_java_version as Integer
+
+		if (rootProject.minecraft_java_version as Integer == 8) {
+			options.compilerArgs.removeIf { it == "--release" }
+			if (options.hasProperty("release")) {
+				options.release.set(null)
+			}
+		}
 	}
 
 	tasks.withType(JavaExec).configureEach {
@@ -82,7 +89,9 @@ subprojects {
 }
 
 githubRelease {
-	evaluationDependsOnChildren()
+	if (rootProject.architectury_loom_id == 'dev.architectury.loom-no-remap') {
+		evaluationDependsOnChildren()
+	}
 
 	token = System.getenv("GITHUB_TOKEN")
 	owner = "${rootProject.repo_owner}"

@@ -3,7 +3,7 @@ architectury {
 }
 
 loom {
-    accessWidenerPath = project(":common").file("src/main/resources/${rootProject.archives_name}.accesswidener")
+    accessWidenerPath = project(":common").file("src/main/resources/${project.archives_name}.accesswidener")
 }
 
 dependencies {
