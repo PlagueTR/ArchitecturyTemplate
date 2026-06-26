@@ -75,7 +75,7 @@ dependencies {
 def convertAW2AT = tasks.register("convertAW2AT") {
     group = "build"
 
-    def inputAW = project(":common").file("src/main/resources/example_mod.accesswidener")
+    def inputAW = project(":common").file("src/main/resources/${rootProject.archives_name}.accesswidener")
     def outputDir = project.layout.buildDirectory.dir("generated/aw2at").get().asFile
     def outputAT = new File(outputDir, "META-INF/accesstransformer.cfg")
 
