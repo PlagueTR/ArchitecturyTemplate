@@ -39,7 +39,7 @@ def setup_project():
 		old_mod_id: mod_id
 	}
 
-	valid_extensions = ('.json', '.toml', '.java', '.cfg', '.properties', '.conf')
+	valid_extensions = ('.json', '.toml', '.java', '.cfg', '.properties', '.gradle', '.conf')
 
 	for root, dirs, files in os.walk('.'):
 		if any(p in root for p in ['.git', '.gradle', '.idea', 'build', '.github']):
