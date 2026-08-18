@@ -13,11 +13,13 @@ public final class Main {
     public static final Logger LOGGER = LogManager.getLogger(MOD_ID);
 
     public static void init() {
-        LOGGER.info("[" + MOD_NAME + "] Loading...");
+
+        Main.LOGGER.info("[" + Main.MOD_NAME + "] Loading...");
 
         ModConfigManager.initializeConfig();
 
-        LOGGER.info("[" + MOD_NAME + "] All done!");
+        Main.LOGGER.info("[" + Main.MOD_NAME + "] All done!");
+
     }
 
     public static ModConfig getConfig() {

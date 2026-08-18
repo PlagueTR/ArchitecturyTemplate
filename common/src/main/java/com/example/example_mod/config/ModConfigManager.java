@@ -24,13 +24,12 @@ public class ModConfigManager {
         }
     }
 
-    public static ModConfig initializeConfig() {
+    public static void initializeConfig() {
         if (ModConfigManager.config != null) {
-            return ModConfigManager.config;
+            return;
         }
         ModConfigManager.config = new ModConfig();
         load();
-        return ModConfigManager.config;
     }
 
     public static void save() {

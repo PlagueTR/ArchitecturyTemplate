@@ -13,17 +13,20 @@
   },
   "license": "${mod_license}",
   "icon": "assets/example_mod/icon.png",
-  "environment": "client",
+  "environment": "*",
   "entrypoints": {
     "main": [
       "com.example.example_mod.fabric.MainFabric"
+    ],
+    "client": [
+      "com.example.example_mod.fabric.ClientMainFabric"
     ],
     "modmenu": [
       "com.example.example_mod.fabric.config.gui.ModMenuIntegration"
     ]
   },
   "mixins": [
-    "example_mod.mixins.json"
+      "example_mod.mixins.json"
   ],
   "depends": {
     "fabricloader": ">=${fabric_loader_version}",
