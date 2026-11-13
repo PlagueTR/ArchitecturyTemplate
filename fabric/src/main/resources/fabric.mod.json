@@ -2,9 +2,8 @@
   "schemaVersion": 1,
   "id": "${mod_id}",
   "version": "${mod_version}",
-  "accessWidener": "example_mod.accesswidener",
   "name": "${mod_name}",
-  "description": "${mod_desc}",
+  "description": "${mod_description}",
   "authors": [
     "${mod_author}"
   ],
@@ -12,8 +11,9 @@
     "sources": "${mod_sources}"
   },
   "license": "${mod_license}",
-  "icon": "assets/example_mod/icon.png",
+  "icon": "assets/${mod_id}/icon.png",
   "environment": "*",
+  "accessWidener": "${mod_id}.accesswidener",
   "entrypoints": {
     "main": [
       "com.example.example_mod.fabric.MainFabric"
@@ -26,12 +26,13 @@
     ]
   },
   "mixins": [
-      "example_mod.mixins.json"
+    "${mod_id}.mixins.json"
   ],
   "depends": {
     "fabricloader": ">=${fabric_loader_version}",
-    "minecraft": "~${minecraft_version}",
-    "java": ">=${java_version}"
+    "minecraft": "${minecraft_version}",
+    "java": ">=${java_version}"<% if (architectury_api_version) { %>,
+    "architectury": ">=${architectury_api_version}"<% } %>
   },
   "suggests": {
     "modmenu": ">=${mod_menu_version}"
