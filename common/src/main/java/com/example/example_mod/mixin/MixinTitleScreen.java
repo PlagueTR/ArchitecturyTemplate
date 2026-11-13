@@ -1,5 +1,7 @@
 package com.example.example_mod.mixin;
 
+import com.example.example_mod.Main;
+
 import net.minecraft.client.gui.screens.TitleScreen;
 
 import org.spongepowered.asm.mixin.Mixin;
@@ -8,19 +10,17 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import com.example.example_mod.Main;
-
 @Mixin(TitleScreen.class)
-public class MixinTitleScreen {
+public abstract class MixinTitleScreen {
 
     @Unique
-    private static boolean said_hello = false;
+    private static boolean example_mod$saidHello;
 
     @Inject(method = "init()V", at = @At("TAIL"))
-    protected void init(CallbackInfo ci) {
-        if (!said_hello && Main.getConfig().isEnableMod()) {
+    private void example_mod$onInit(CallbackInfo ci) {
+        if (!example_mod$saidHello && Main.getConfig().isEnableMod()) {
             Main.LOGGER.info("Hello from MixinTitleScreen");
-            said_hello = true;
+            example_mod$saidHello = true;
         }
     }
 

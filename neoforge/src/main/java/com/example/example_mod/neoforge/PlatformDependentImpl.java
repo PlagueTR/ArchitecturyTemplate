@@ -4,8 +4,13 @@ import net.neoforged.fml.loading.FMLPaths;
 
 import java.nio.file.Path;
 
-public class PlatformDependentImpl {
+public final class PlatformDependentImpl {
 
-    public static Path getConfigDirectory() { return FMLPaths.CONFIGDIR.get(); }
+    private PlatformDependentImpl() {
+    }
+
+    public static Path getConfigDirectory() {
+        return FMLPaths.CONFIGDIR.get();
+    }
 
 }

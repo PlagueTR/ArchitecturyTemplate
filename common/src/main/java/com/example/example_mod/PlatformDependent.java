@@ -1,10 +1,15 @@
 package com.example.example_mod;
 
+import dev.architectury.injectables.annotations.ExpectPlatform;
+
 import java.nio.file.Path;
 
-public class PlatformDependent {
+public final class PlatformDependent {
 
-    @dev.architectury.injectables.annotations.ExpectPlatform
+    private PlatformDependent() {
+    }
+
+    @ExpectPlatform
     public static Path getConfigDirectory() {
         throw new AssertionError();
     }

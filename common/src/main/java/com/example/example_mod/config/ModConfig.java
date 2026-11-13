@@ -1,12 +1,8 @@
 package com.example.example_mod.config;
 
-public class ModConfig {
+public final class ModConfig {
 
-    private boolean enableMod;
-
-    public ModConfig() {
-        this.enableMod = true;
-    }
+    private boolean enableMod = true;
 
     public boolean isEnableMod() {
         return enableMod;

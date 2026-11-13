@@ -10,16 +10,17 @@ public final class Main {
 
     public static final String MOD_ID = "example_mod";
     public static final String MOD_NAME = "Example Mod";
-    public static final Logger LOGGER = LogManager.getLogger(MOD_ID);
+    public static final Logger LOGGER = LogManager.getLogger(MOD_NAME);
+
+    private Main() {
+    }
 
     public static void init() {
+        LOGGER.info("Loading...");
 
-        Main.LOGGER.info("[" + Main.MOD_NAME + "] Loading...");
+        ModConfigManager.load();
 
-        ModConfigManager.initializeConfig();
-
-        Main.LOGGER.info("[" + Main.MOD_NAME + "] All done!");
-
+        LOGGER.info("All done!");
     }
 
     public static ModConfig getConfig() {
