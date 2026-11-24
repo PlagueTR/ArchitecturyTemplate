@@ -12,7 +12,7 @@
   },
   "license": "${mod_license}",
   "icon": "assets/${mod_id}/icon.png",
-  "environment": "*",
+  "environment": "${fabric_environment}",
   "accessWidener": "${mod_id}.accesswidener",
   "entrypoints": {
     "main": [

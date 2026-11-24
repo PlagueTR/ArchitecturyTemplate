@@ -13,6 +13,10 @@ dependencies {
     }
 }
 
+if ((rootProject.forge_version as String).startsWith('1.21-')) {
+    configurations.runtimeClasspath.resolutionStrategy.force 'net.sf.jopt-simple:jopt-simple:5.0.4'
+}
+
 tasks.withType(Jar).configureEach {
     manifest.attributes('MixinConfigs': "${rootProject.mod_id}.mixins.json")
 }
