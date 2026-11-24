@@ -178,7 +178,22 @@ tasks.register('updateTemplate') {
         def localPathFor = { String path, List replacements -> applySubstitutions(path, replacements) }
         def readLocal = { String path ->
             def target = new File(root, path)
-            target.isFile() ? target.bytes : null
+            if (!target.isFile()) {
+                return null
+            }
+            def bytes = target.bytes
+            if (!isText(bytes) || !(bytes as List).contains((byte) 13)) {
+                return bytes
+            }
+            def sha = new String(git.run(['hash-object', '-w', '--stdin', "--path=${path}".toString()], bytes).out as byte[], StandardCharsets.UTF_8).trim()
+            return git.blob(sha)
+        }
+        def toWorktree = { String path, byte[] bytes ->
+            if (!isText(bytes)) {
+                return bytes
+            }
+            def sha = new String(git.run(['hash-object', '-w', '--stdin', '--no-filters'], bytes).out as byte[], StandardCharsets.UTF_8).trim()
+            return git.run(['cat-file', '--filters', "--path=${path}".toString(), sha]).out as byte[]
         }
         def digest = { byte[] bytes -> bytes == null ? null : MessageDigest.getInstance('SHA-1').digest(bytes).encodeHex().toString() }
 
@@ -232,7 +247,7 @@ tasks.register('updateTemplate') {
             }
             def target = new File(root, path)
             target.parentFile.mkdirs()
-            target.bytes = bytes
+            target.bytes = toWorktree(path, bytes)
             if (templateMode == '100755') {
                 try {
                     def permissions = Files.getPosixFilePermissions(target.toPath())
@@ -280,6 +295,85 @@ tasks.register('updateTemplate') {
             } finally {
                 temp.deleteDir()
             }
+        }
+        def propertyPattern = ~/^\s*([^#!\s=:][^=:\s]*)\s*[=:]\s*(.*?)\s*$/
+        def propertyValues = { byte[] bytes ->
+            def values = [:]
+            new String(bytes, StandardCharsets.UTF_8).readLines().each { line ->
+                def match = propertyPattern.matcher(line)
+                if (match.matches()) {
+                    values[match.group(1)] = match.group(2)
+                }
+            }
+            values
+        }
+        def askProperty = { String path, String key, String mine, String theirs ->
+            if (dryRun) {
+                return 'pending'
+            }
+            def choice = [template: 'template', mine: 'mine', merge: 'mine'][applyAll ?: mode]
+            while (choice == null) {
+                def answer = console.ask("\n${path}: both you and the template changed ${key}\n  yours:    ${mine ?: '(removed)'}\n  template: ${theirs ?: '(removed)'}\n  [t]emplate, [k]eep yours > ")
+                if (answer == null) {
+                    mode = 'merge'
+                    choice = 'mine'
+                } else {
+                    choice = [t: 'template', k: 'mine'][answer.toLowerCase()]
+                }
+            }
+            return choice
+        }
+        def mergeProperties = { String path, byte[] mine, byte[] baseBytes, byte[] theirs ->
+            def mineValues = propertyValues(mine)
+            def baseValues = propertyValues(baseBytes)
+            def theirValues = propertyValues(theirs)
+            def keptKeys = []
+            def pendingKeys = []
+            def resolve = { String key ->
+                def yours = mineValues[key]
+                def original = baseValues[key]
+                def template = theirValues[key]
+                if (yours == template || yours == original) {
+                    return template
+                }
+                if (template == original) {
+                    return yours
+                }
+                def choice = askProperty(path, key, yours, template)
+                if (choice == 'pending') {
+                    pendingKeys << key
+                    return yours
+                }
+                if (choice == 'mine') {
+                    keptKeys << key
+                    return yours
+                }
+                return template
+            }
+            def lines = []
+            new String(theirs, StandardCharsets.UTF_8).readLines().each { line ->
+                def match = propertyPattern.matcher(line)
+                if (!match.matches()) {
+                    lines << line
+                    return
+                }
+                def key = match.group(1)
+                def value = resolve(key)
+                if (value != null) {
+                    lines << (value == match.group(2) ? line : line.substring(0, match.start(2)) + value)
+                }
+            }
+            def extra = mineValues.keySet().findAll { !theirValues.containsKey(it) }.findResults { key ->
+                def value = resolve(key)
+                value == null ? null : "${key} = ${value}".toString()
+            }
+            if (extra) {
+                if (lines && lines.last()) {
+                    lines << ''
+                }
+                lines.addAll(extra)
+            }
+            return [bytes: (lines.join('\n') + '\n').getBytes(StandardCharsets.UTF_8), kept: keptKeys, pending: pendingKeys]
         }
         def decide = { String path, String reason, byte[] mine, byte[] theirs, boolean canMerge ->
             if (dryRun) {
@@ -368,6 +462,15 @@ tasks.register('updateTemplate') {
             if (merged != null && merged.conflicts == 0 && baseBytes != null) {
                 writeFile(localPath, merged.bytes, templateMode)
                 summary.merged << localPath
+                return
+            }
+
+            if (text && baseBytes != null && localPath.endsWith('.properties')) {
+                def properties = mergeProperties(localPath, mine, baseBytes, theirs)
+                writeFile(localPath, properties.bytes, templateMode)
+                summary.merged << localPath
+                properties.kept.each { summary.kept << "${localPath}: ${it}".toString() }
+                properties.pending.each { summary.pending << "${localPath}: ${it}".toString() }
                 return
             }
 
