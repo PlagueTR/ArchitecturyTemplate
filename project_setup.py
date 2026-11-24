@@ -226,12 +226,22 @@ def remove_unused_metadata(version_file):
         unused = meta_dir / ("neoforge.mods.toml" if legacy else "mods.toml")
         if unused.exists():
             unused.unlink()
+            return unused.relative_to(ROOT).as_posix()
+    return None
 
 
 def remove_other_versions(keep):
     for path in (ROOT / "versions").glob("*.properties"):
         if path.name != keep.name:
             path.unlink()
+
+
+def ignore_in_template_updates(patterns):
+    ignore_file = ROOT / ".templateignore"
+    existing = ignore_file.read_text(encoding="utf-8").splitlines() if ignore_file.exists() else []
+    added = [pattern for pattern in patterns if pattern not in existing]
+    if added:
+        ignore_file.write_text("\n".join(existing + added) + "\n", encoding="utf-8")
 
 
 def remove_platform_modules(platforms):
@@ -374,10 +384,12 @@ def main():
 
     if single_version:
         flatten_sources(version_file, platforms)
-        remove_unused_metadata(version_file)
+        removed_metadata = remove_unused_metadata(version_file)
         prune_version_file(version_file, platforms)
         remove_other_versions(version_file)
         remove_platform_modules(platforms)
+        ignore_in_template_updates(["versions/**"] + ([removed_metadata] if removed_metadata else [])
+                                   + [f"{platform}/**" for platform in PLATFORMS if platform not in platforms])
 
     if any(secrets.values()):
         write_dotenv(ROOT / ".env", secrets)

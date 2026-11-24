@@ -27,6 +27,8 @@ plugins {
     id 'net.darkhax.curseforgegradle' version "${curseforge_gradle_version}" apply false
 }
 
+apply from: 'gradle/template-update.gradle'
+
 gradle.ext.versionProperties.each { key, value -> ext.set(key as String, (value as String).trim()) }
 
 ext.activePlatforms = gradle.ext.activePlatforms as List<String>

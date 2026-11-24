@@ -14,6 +14,11 @@ plugins {
 
 rootProject.name = providers.gradleProperty('archives_name').get()
 
+if (gradle.startParameter.taskNames.any { it.replaceFirst('^:', '') == 'updateTemplate' }) {
+    rootProject.buildFileName = 'gradle/template-update.gradle'
+    return
+}
+
 def targetVersion = providers.gradleProperty('target_minecraft_version').get()
 def versionFile = file("versions/${targetVersion}.properties")
 if (!versionFile.exists()) {
