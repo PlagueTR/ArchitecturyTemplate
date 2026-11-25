@@ -102,6 +102,7 @@ ext.modProperties = [
     neoforge_major         : neoForgeMajor,
     neoforge_icon_key      : neoForgeIconKey,
     neoforge_required      : (findProperty('neoforge_version') ?: '').startsWith('20.2.') ? 'mandatory = true' : 'type = "required"',
+    neoforge_optional      : (findProperty('neoforge_version') ?: '').startsWith('20.2.') ? 'mandatory = false' : 'type = "optional"',
 ]
 
 architectury {
@@ -236,8 +237,12 @@ configure(subprojects.findAll { it.name != 'common' }) { platformProject ->
         }
     }
 
+    def clothConfigVersion = rootProject.dependencyVersion(platform, 'cloth_config_version') ?: ''
+    def clothConfigMajor = clothConfigVersion ? clothConfigVersion.tokenize('.')[0] as int : 0
     def resourceProperties = rootProject.modProperties + [
         architectury_api_version: rootProject.includeArchitecturyApi ? (rootProject.dependencyVersion(platform, 'architectury_api_version') ?: '') : '',
+        cloth_config_version    : clothConfigVersion,
+        cloth_config_id         : platform == 'fabric' ? (clothConfigMajor < 6 ? 'cloth-config2' : 'cloth-config') : (clothConfigMajor < 5 ? 'cloth-config' : 'cloth_config'),
     ]
 
     processResources {

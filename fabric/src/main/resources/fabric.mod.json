@@ -35,6 +35,7 @@
     "architectury": ">=${architectury_api_version}"<% } %>
   },
   "suggests": {
-    "modmenu": ">=${mod_menu_version}"
+    "modmenu": ">=${mod_menu_version}"<% if (cloth_config_version) { %>,
+    "${cloth_config_id}": ">=${cloth_config_version}"<% } %>
   }
 }

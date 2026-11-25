@@ -33,5 +33,13 @@ versionRange = "[${architectury_api_version},)"
 ordering = "AFTER"
 side = "BOTH"
 <% } %>
+<% if (cloth_config_version) { %>
+[[dependencies.${mod_id}]]
+modId = "${cloth_config_id}"
+${neoforge_optional}
+versionRange = "[${cloth_config_version},)"
+ordering = "NONE"
+side = "CLIENT"
+<% } %>
 [[mixins]]
 config = "${mod_id}.mixins.json"
