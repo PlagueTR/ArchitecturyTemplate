@@ -212,7 +212,7 @@ tasks.register('updateTemplate') {
             git.text(['rev-list', '--max-count=300', 'refs/template/latest']).readLines().each { commit ->
                 def tree = git.tree(commit)
                 def replacements = substitutionsFor(tree)
-                def score = tree.keySet().findAll { !ignored(it) }.count { path ->
+                def score = tree.keySet().findAll { !ignored(it) && it != 'gradle/template-update.gradle' }.count { path ->
                     def localPath = localPathFor(path, replacements)
                     def localDigest = localDigests.computeIfAbsent(localPath) { digest(readLocal(it)) }
                     localDigest != null && localDigest == digest(contentFor(tree, path, replacements))
@@ -238,10 +238,36 @@ tasks.register('updateTemplate') {
         def baseTree = base ? git.tree(base) : [:]
         def baseReplacements = base ? substitutionsFor(baseTree) : latestReplacements
 
-        def summary = [updated: [], added: adoptedIgnore ? ['.templateignore'] : [], deleted: [], merged: [], kept: [], conflicts: [], pending: [], renamed: [], dropped: []]
+        def summary = [updated: [], added: adoptedIgnore ? ['.templateignore'] : [], deleted: [], merged: [], kept: [], conflicts: [], pending: [], renamed: [], dropped: [], removedKept: [], moved: []]
         def applyAll = null
 
+        def propertyPattern = ~/^\s*([^#!\s=:][^=:\s]*)\s*[=:]\s*(.*?)\s*$/
+        def propertyValues = { byte[] bytes ->
+            def values = [:]
+            if (bytes == null) {
+                return values
+            }
+            new String(bytes, StandardCharsets.UTF_8).readLines().each { line ->
+                def match = propertyPattern.matcher(line)
+                if (match.matches()) {
+                    values[match.group(1)] = match.group(2)
+                }
+            }
+            values
+        }
+        def movedKeys = [:]
+        def noteMovedKeys = { String path, byte[] bytes ->
+            if (!path.endsWith('.properties') || path == 'gradle.properties') {
+                return
+            }
+            def before = propertyValues(readLocal(path))
+            def after = propertyValues(bytes)
+            before.findAll { !after.containsKey(it.key) }.each { key, value ->
+                movedKeys.computeIfAbsent(key) { [:] }.computeIfAbsent(value) { [] } << path
+            }
+        }
         def writeFile = { String path, byte[] bytes, String templateMode ->
+            noteMovedKeys(path, bytes)
             if (dryRun) {
                 return
             }
@@ -296,20 +322,6 @@ tasks.register('updateTemplate') {
                 temp.deleteDir()
             }
         }
-        def propertyPattern = ~/^\s*([^#!\s=:][^=:\s]*)\s*[=:]\s*(.*?)\s*$/
-        def propertyValues = { byte[] bytes ->
-            def values = [:]
-            if (bytes == null) {
-                return values
-            }
-            new String(bytes, StandardCharsets.UTF_8).readLines().each { line ->
-                def match = propertyPattern.matcher(line)
-                if (match.matches()) {
-                    values[match.group(1)] = match.group(2)
-                }
-            }
-            values
-        }
         def askProperty = { String path, String key, String mine, String theirs ->
             if (dryRun) {
                 return 'pending'
@@ -331,10 +343,12 @@ tasks.register('updateTemplate') {
                            'include_architectury_api', 'release_type', 'repo_owner', 'repo_name', 'repo_branch', 'modrinth_id', 'curseforge_id']
         def renamedKeys = [repo_repo: 'repo_name', minecraft_java_version: 'java_version',
                            common_cloth_config_version: 'cloth_config_version', fabric_mod_menu_version: 'mod_menu_version']
-        def propertyKeysIn = { Map tree ->
-            tree.findAll { it.key.endsWith('.properties') }.collectMany { propertyValues(git.blob(it.value.sha)).keySet() as List } as Set
+        def directoryOf = { String path -> path.contains('/') ? path.substring(0, path.lastIndexOf('/')) : '' }
+        def propertyKeysIn = { Map tree, String directory ->
+            tree.findAll { it.key.endsWith('.properties') && directoryOf(it.key) == directory }
+                .collectMany { propertyValues(git.blob(it.value.sha)).keySet() as List } as Set
         }
-        def obsoleteKeys = propertyKeysIn(baseTree) - propertyKeysIn(latestTree)
+        def obsoleteKeys = [:].withDefault { String directory -> propertyKeysIn(baseTree, directory) - propertyKeysIn(latestTree, directory) }
         def mergeProperties = { String path, byte[] mine, byte[] baseBytes, byte[] theirs ->
             def mineValues = propertyValues(mine)
             def baseValues = propertyValues(baseBytes)
@@ -362,7 +376,7 @@ tasks.register('updateTemplate') {
                 if (path == 'gradle.properties' && key in projectKeys && yours != null) {
                     return yours
                 }
-                if (baseBytes == null && template == null && key in obsoleteKeys) {
+                if (baseBytes == null && template == null && key in obsoleteKeys[directoryOf(path)]) {
                     droppedKeys << key
                     return null
                 }
@@ -465,7 +479,7 @@ tasks.register('updateTemplate') {
                     deleteFile(localPath)
                     summary.deleted << localPath
                 } else if (choice != 'pending') {
-                    summary.kept << localPath
+                    summary.removedKept << localPath
                 }
                 return
             }
@@ -542,8 +556,19 @@ tasks.register('updateTemplate') {
             }
         }
 
+        def rootValues = propertyValues(dryRun ? contentFor(latestTree, 'gradle.properties', latestReplacements) : readLocal('gradle.properties'))
+        movedKeys.each { key, values ->
+            def rootValue = rootValues[key]
+            values.findAll { rootValue != null && it.key != rootValue }.each { value, files ->
+                def where = files.size() > 3 ? "${files.size()} files" : files.join(', ')
+                summary.moved << "${key} = ${value} in ${where}, now ${rootValue} from gradle.properties".toString()
+            }
+        }
+
         logger.lifecycle("\n${dryRun ? 'Dry run, nothing was written. ' : ''}Template ${base ? git.text(['log', '-1', '--format=%h', base]) : '(unknown)'} -> ${git.text(['log', '-1', '--format=%h %s', latest])}")
-        [updated: 'Updated', added: 'Added', deleted: 'Deleted', merged: 'Merged cleanly', kept: 'Kept yours', conflicts: 'Conflict markers, resolve by hand', pending: 'Would ask about', renamed: 'Renamed keys', dropped: 'Removed keys the template no longer uses'].each { key, label ->
+        [updated: 'Updated', added: 'Added', deleted: 'Deleted', merged: 'Merged cleanly', kept: 'Kept yours', conflicts: 'Conflict markers, resolve by hand', pending: 'Would ask about', renamed: 'Renamed keys', dropped: 'Removed keys the template no longer uses',
+         moved: 'Values that now come from gradle.properties, set them there or in a profile if you need them',
+         removedKept: 'Removed from the template, kept because you changed them (delete them unless you still need them)'].each { key, label ->
             if (summary[key]) {
                 logger.lifecycle("${label}:\n  ${summary[key].join('\n  ')}")
             }
