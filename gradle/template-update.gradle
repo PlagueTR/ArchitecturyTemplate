@@ -238,7 +238,7 @@ tasks.register('updateTemplate') {
         def baseTree = base ? git.tree(base) : [:]
         def baseReplacements = base ? substitutionsFor(baseTree) : latestReplacements
 
-        def summary = [updated: [], added: adoptedIgnore ? ['.templateignore'] : [], deleted: [], merged: [], kept: [], conflicts: [], pending: []]
+        def summary = [updated: [], added: adoptedIgnore ? ['.templateignore'] : [], deleted: [], merged: [], kept: [], conflicts: [], pending: [], renamed: [], dropped: []]
         def applyAll = null
 
         def writeFile = { String path, byte[] bytes, String templateMode ->
@@ -299,6 +299,9 @@ tasks.register('updateTemplate') {
         def propertyPattern = ~/^\s*([^#!\s=:][^=:\s]*)\s*[=:]\s*(.*?)\s*$/
         def propertyValues = { byte[] bytes ->
             def values = [:]
+            if (bytes == null) {
+                return values
+            }
             new String(bytes, StandardCharsets.UTF_8).readLines().each { line ->
                 def match = propertyPattern.matcher(line)
                 if (match.matches()) {
@@ -323,16 +326,46 @@ tasks.register('updateTemplate') {
             }
             return choice
         }
+        def projectKeys = ['mod_id', 'mod_name', 'mod_description', 'mod_author', 'mod_sources', 'mod_license', 'mod_version',
+                           'mod_environment', 'maven_group', 'archives_name', 'target_minecraft_version', 'enabled_platforms',
+                           'include_architectury_api', 'release_type', 'repo_owner', 'repo_name', 'repo_branch', 'modrinth_id', 'curseforge_id']
+        def renamedKeys = [repo_repo: 'repo_name', minecraft_java_version: 'java_version',
+                           common_cloth_config_version: 'cloth_config_version', fabric_mod_menu_version: 'mod_menu_version']
+        def propertyKeysIn = { Map tree ->
+            tree.findAll { it.key.endsWith('.properties') }.collectMany { propertyValues(git.blob(it.value.sha)).keySet() as List } as Set
+        }
+        def obsoleteKeys = propertyKeysIn(baseTree) - propertyKeysIn(latestTree)
         def mergeProperties = { String path, byte[] mine, byte[] baseBytes, byte[] theirs ->
             def mineValues = propertyValues(mine)
             def baseValues = propertyValues(baseBytes)
             def theirValues = propertyValues(theirs)
+            def renamed = []
+            renamedKeys.each { oldKey, newKey ->
+                if (mineValues.containsKey(oldKey) && !mineValues.containsKey(newKey) && theirValues.containsKey(newKey) && !theirValues.containsKey(oldKey)) {
+                    mineValues[newKey] = mineValues.remove(oldKey)
+                    if (baseValues.containsKey(oldKey) && !baseValues.containsKey(newKey)) {
+                        baseValues[newKey] = baseValues.remove(oldKey)
+                    }
+                    renamed << "${oldKey} -> ${newKey}".toString()
+                }
+            }
+            if (path == 'gradle.properties' && !mineValues.containsKey('mod_id') && mineValues.containsKey('archives_name') && theirValues.containsKey('mod_id')) {
+                mineValues.mod_id = mineValues.archives_name
+            }
             def keptKeys = []
             def pendingKeys = []
+            def droppedKeys = []
             def resolve = { String key ->
                 def yours = mineValues[key]
                 def original = baseValues[key]
                 def template = theirValues[key]
+                if (path == 'gradle.properties' && key in projectKeys && yours != null) {
+                    return yours
+                }
+                if (baseBytes == null && template == null && key in obsoleteKeys) {
+                    droppedKeys << key
+                    return null
+                }
                 if (yours == template || yours == original) {
                     return template
                 }
@@ -373,7 +406,7 @@ tasks.register('updateTemplate') {
                 }
                 lines.addAll(extra)
             }
-            return [bytes: (lines.join('\n') + '\n').getBytes(StandardCharsets.UTF_8), kept: keptKeys, pending: pendingKeys]
+            return [bytes: (lines.join('\n') + '\n').getBytes(StandardCharsets.UTF_8), kept: keptKeys, pending: pendingKeys, renamed: renamed, dropped: droppedKeys]
         }
         def decide = { String path, String reason, byte[] mine, byte[] theirs, boolean canMerge ->
             if (dryRun) {
@@ -465,12 +498,16 @@ tasks.register('updateTemplate') {
                 return
             }
 
-            if (text && baseBytes != null && localPath.endsWith('.properties')) {
+            if (text && localPath.endsWith('.properties')) {
                 def properties = mergeProperties(localPath, mine, baseBytes, theirs)
                 writeFile(localPath, properties.bytes, templateMode)
                 summary.merged << localPath
                 properties.kept.each { summary.kept << "${localPath}: ${it}".toString() }
                 properties.pending.each { summary.pending << "${localPath}: ${it}".toString() }
+                properties.renamed.each { summary.renamed << "${localPath}: ${it}".toString() }
+                if (properties.dropped) {
+                    summary.dropped << "${localPath}: ${properties.dropped.join(', ')}".toString()
+                }
                 return
             }
 
@@ -506,7 +543,7 @@ tasks.register('updateTemplate') {
         }
 
         logger.lifecycle("\n${dryRun ? 'Dry run, nothing was written. ' : ''}Template ${base ? git.text(['log', '-1', '--format=%h', base]) : '(unknown)'} -> ${git.text(['log', '-1', '--format=%h %s', latest])}")
-        [updated: 'Updated', added: 'Added', deleted: 'Deleted', merged: 'Merged cleanly', kept: 'Kept yours', conflicts: 'Conflict markers, resolve by hand', pending: 'Would ask about'].each { key, label ->
+        [updated: 'Updated', added: 'Added', deleted: 'Deleted', merged: 'Merged cleanly', kept: 'Kept yours', conflicts: 'Conflict markers, resolve by hand', pending: 'Would ask about', renamed: 'Renamed keys', dropped: 'Removed keys the template no longer uses'].each { key, label ->
             if (summary[key]) {
                 logger.lifecycle("${label}:\n  ${summary[key].join('\n  ')}")
             }
