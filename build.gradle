@@ -66,6 +66,10 @@ ext.dependencyVersion = { String platform, String key ->
 
 ext.includeArchitecturyApi = include_architectury_api.toBoolean()
 
+if (!(mod_environment in ['client', 'server', 'both'])) {
+    throw new GradleException("mod_environment must be client, server or both (got ${mod_environment})")
+}
+
 def forgeMajor = findProperty('forge_version') ? (forge_version as String).tokenize('-')[1].tokenize('.')[0] : ''
 def neoForgeMajor = findProperty('neoforge_version') ? (neoforge_version as String).replaceFirst(/-.*$/, '').tokenize('.').dropRight(1).join('.') : ''
 def neoForgeParts = neoForgeMajor.tokenize('.')*.toInteger()
