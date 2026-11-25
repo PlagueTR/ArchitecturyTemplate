@@ -66,6 +66,15 @@ ext.dependencyVersion = { String platform, String key ->
 
 ext.includeArchitecturyApi = include_architectury_api.toBoolean()
 
+if (includeArchitecturyApi) {
+    ['fabric_loader_version', 'fabric_api_version'].each { key ->
+        def version = findProperty("architectury_${key}")
+        if (version) {
+            ext.set(key, version)
+        }
+    }
+}
+
 if (!(mod_environment in ['client', 'server', 'both'])) {
     throw new GradleException("mod_environment must be client, server or both (got ${mod_environment})")
 }
@@ -110,6 +119,11 @@ subprojects {
 
     base {
         archivesName = "${rootProject.archives_name}-${rootProject.minecraft_version}-${project.name}"
+    }
+
+    configurations.configureEach {
+        resolutionStrategy.force "net.fabricmc:fabric-loader:${rootProject.fabric_loader_version}"
+        resolutionStrategy.force "net.fabricmc.fabric-api:fabric-api:${rootProject.fabric_api_version}"
     }
 
     repositories {
