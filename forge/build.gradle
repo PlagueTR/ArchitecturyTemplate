@@ -11,6 +11,11 @@ dependencies {
     if (clothConfigVersion) {
         "${rootProject.modConfiguration}" "me.shedaniel.cloth:cloth-config-forge:${clothConfigVersion}"
     }
+
+    def modsButtonVersion = rootProject.dependencyVersion('forge', 'mods_button_version')
+    if (modsButtonVersion) {
+        modLocalRuntime "maven.modrinth:gamemenumodoption:${modsButtonVersion}"
+    }
 }
 
 if (rootProject.modProperties.forge_major in ['50', '51']) {

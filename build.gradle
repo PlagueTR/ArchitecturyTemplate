@@ -144,6 +144,10 @@ subprojects {
             content { includeGroup 'com.terraformersmc' }
         }
         maven { url = 'https://maven.neoforged.net/releases/' }
+        maven {
+            url = 'https://api.modrinth.com/maven/'
+            content { includeGroup 'maven.modrinth' }
+        }
     }
 
     if (!rootProject.unobfuscated) {
